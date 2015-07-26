@@ -12,7 +12,6 @@ package ed25519
 import (
 	"crypto/sha512"
 	"crypto/subtle"
-	"io"
 
 	"github.com/NebulousLabs/ed25519/edwards25519"
 )
@@ -24,13 +23,10 @@ const (
 )
 
 // GenerateKey generates a public/secret key pair using randomness from rand.
-func GenerateKey(rand io.Reader) (publicKey *[PublicKeySize]byte, secretKey *[SecretKeySize]byte, err error) {
+func GenerateKey(entropy [32]byte) (publicKey *[PublicKeySize]byte, secretKey *[SecretKeySize]byte, err error) {
 	secretKey = new([64]byte)
 	publicKey = new([32]byte)
-	_, err = io.ReadFull(rand, secretKey[:32])
-	if err != nil {
-		return nil, nil, err
-	}
+	copy(secretKey[:], entropy[:])
 
 	h := sha512.New()
 	h.Write(secretKey[:32])

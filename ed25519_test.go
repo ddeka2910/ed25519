@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"crypto/rand"
 	"encoding/hex"
 	"io"
 	"os"
@@ -15,18 +16,8 @@ import (
 	"testing"
 )
 
-type zeroReader struct{}
-
-func (zeroReader) Read(buf []byte) (int, error) {
-	for i := range buf {
-		buf[i] = 0
-	}
-	return len(buf), nil
-}
-
 func TestSignVerify(t *testing.T) {
-	var zero zeroReader
-	public, secret, _ := GenerateKey(zero)
+	public, secret, _ := GenerateKey([32]byte{})
 
 	message := []byte("test message")
 	sig := Sign(secret, message)
@@ -100,6 +91,20 @@ func TestGolden(t *testing.T) {
 		copy(pubKey[:], pubKeyBytes)
 		if !Verify(&pubKey, msg, sig2) {
 			t.Errorf("signature failed to verify on line %d", lineNo)
+		}
+	}
+}
+
+func BenchmarkKeyGeneration(b *testing.B) {
+	for i := 0; i < b.N; i++ {
+		var entropy [32]byte
+		_, err := rand.Read(entropy[:])
+		if err != nil {
+			panic(err)
+		}
+		_, _, err = GenerateKey(entropy)
+		if err != nil {
+			panic(err)
 		}
 	}
 }
