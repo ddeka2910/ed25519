@@ -14,26 +14,26 @@ import (
 	"crypto/subtle"
 	"io"
 
-	"github.com/agl/ed25519/edwards25519"
+	"github.com/NebulousLabs/ed25519/edwards25519"
 )
 
 const (
 	PublicKeySize  = 32
-	PrivateKeySize = 64
+	SecretKeySize = 64
 	SignatureSize  = 64
 )
 
-// GenerateKey generates a public/private key pair using randomness from rand.
-func GenerateKey(rand io.Reader) (publicKey *[PublicKeySize]byte, privateKey *[PrivateKeySize]byte, err error) {
-	privateKey = new([64]byte)
+// GenerateKey generates a public/secret key pair using randomness from rand.
+func GenerateKey(rand io.Reader) (publicKey *[PublicKeySize]byte, secretKey *[SecretKeySize]byte, err error) {
+	secretKey = new([64]byte)
 	publicKey = new([32]byte)
-	_, err = io.ReadFull(rand, privateKey[:32])
+	_, err = io.ReadFull(rand, secretKey[:32])
 	if err != nil {
 		return nil, nil, err
 	}
 
 	h := sha512.New()
-	h.Write(privateKey[:32])
+	h.Write(secretKey[:32])
 	digest := h.Sum(nil)
 
 	digest[0] &= 248
@@ -46,14 +46,14 @@ func GenerateKey(rand io.Reader) (publicKey *[PublicKeySize]byte, privateKey *[P
 	edwards25519.GeScalarMultBase(&A, &hBytes)
 	A.ToBytes(publicKey)
 
-	copy(privateKey[32:], publicKey[:])
+	copy(secretKey[32:], publicKey[:])
 	return
 }
 
-// Sign signs the message with privateKey and returns a signature.
-func Sign(privateKey *[PrivateKeySize]byte, message []byte) *[SignatureSize]byte {
+// Sign signs the message with secretKey and returns a signature.
+func Sign(secretKey *[SecretKeySize]byte, message []byte) *[SignatureSize]byte {
 	h := sha512.New()
-	h.Write(privateKey[:32])
+	h.Write(secretKey[:32])
 
 	var digest1, messageDigest, hramDigest [64]byte
 	var expandedSecretKey [32]byte
@@ -78,7 +78,7 @@ func Sign(privateKey *[PrivateKeySize]byte, message []byte) *[SignatureSize]byte
 
 	h.Reset()
 	h.Write(encodedR[:])
-	h.Write(privateKey[32:])
+	h.Write(secretKey[32:])
 	h.Write(message)
 	h.Sum(hramDigest[:0])
 	var hramDigestReduced [32]byte
