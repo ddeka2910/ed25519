@@ -95,15 +95,67 @@ func TestGolden(t *testing.T) {
 	}
 }
 
-func BenchmarkKeyGeneration(b *testing.B) {
+func BenchmarkGenerateKeys(b *testing.B) {
+	var entropy [32]byte
 	for i := 0; i < b.N; i++ {
-		var entropy [32]byte
 		_, err := rand.Read(entropy[:])
 		if err != nil {
 			panic(err)
 		}
 		_, _, err = GenerateKey(entropy)
 		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkSign(b *testing.B) {
+	var entropy [32]byte
+	_, err := rand.Read(entropy[:])
+	if err != nil {
+		panic(err)
+	}
+	_, sk, err := GenerateKey(entropy)
+	if err != nil {
+		panic(err)
+	}
+
+	b.ResetTimer()
+	message := make([]byte, 64)
+	for i := 0; i < b.N; i++ {
+		_, err := rand.Read(message)
+		if err != nil {
+			panic(err)
+		}
+
+		_ = Sign(sk, message)
+	}
+}
+
+func BenchmarkVerify(b *testing.B) {
+	var entropy [32]byte
+	_, err := rand.Read(entropy[:])
+	if err != nil {
+		panic(err)
+	}
+	pk, sk, err := GenerateKey(entropy)
+	if err != nil {
+		panic(err)
+	}
+
+	b.ResetTimer()
+	message := make([]byte, 64)
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		_, err := rand.Read(message)
+		if err != nil {
+			panic(err)
+		}
+
+		sig := Sign(sk, message)
+		b.StartTimer()
+		ver := Verify(pk, message, sig)
+		if !ver {
 			panic(err)
 		}
 	}

@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	PublicKeySize  = 32
+	PublicKeySize = 32
 	SecretKeySize = 64
-	SignatureSize  = 64
+	SignatureSize = 64
 )
 
 // GenerateKey generates a public/secret key pair using randomness from rand.

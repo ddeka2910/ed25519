@@ -17,32 +17,41 @@ package edwards25519
 type FieldElement [10]int32
 
 func FeZero(fe *FieldElement) {
-	for i := range fe {
-		fe[i] = 0
-	}
+	*fe = [10]int32{}
 }
 
 func FeOne(fe *FieldElement) {
-	FeZero(fe)
-	fe[0] = 1
+	*fe = [10]int32{1, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 }
 
 func FeAdd(dst, a, b *FieldElement) {
-	for i := range dst {
-		dst[i] = a[i] + b[i]
-	}
+	dst[0] = a[0] + b[0]
+	dst[1] = a[1] + b[1]
+	dst[2] = a[2] + b[2]
+	dst[3] = a[3] + b[3]
+	dst[4] = a[4] + b[4]
+	dst[5] = a[5] + b[5]
+	dst[6] = a[6] + b[6]
+	dst[7] = a[7] + b[7]
+	dst[8] = a[8] + b[8]
+	dst[9] = a[9] + b[9]
 }
 
 func FeSub(dst, a, b *FieldElement) {
-	for i := range dst {
-		dst[i] = a[i] - b[i]
-	}
+	dst[0] = a[0] - b[0]
+	dst[1] = a[1] - b[1]
+	dst[2] = a[2] - b[2]
+	dst[3] = a[3] - b[3]
+	dst[4] = a[4] - b[4]
+	dst[5] = a[5] - b[5]
+	dst[6] = a[6] - b[6]
+	dst[7] = a[7] - b[7]
+	dst[8] = a[8] - b[8]
+	dst[9] = a[9] - b[9]
 }
 
 func FeCopy(dst, src *FieldElement) {
-	for i := range dst {
-		dst[i] = src[i]
-	}
+	copy(dst[:], src[:])
 }
 
 // Replace (f,g) with (g,g) if b == 1;
@@ -50,15 +59,17 @@ func FeCopy(dst, src *FieldElement) {
 //
 // Preconditions: b in {0,1}.
 func FeCMove(f, g *FieldElement, b int32) {
-	var x FieldElement
 	b = -b
-	for i := range x {
-		x[i] = b & (f[i] ^ g[i])
-	}
-
-	for i := range f {
-		f[i] ^= x[i]
-	}
+	f[0] ^= b & (f[0] ^ g[0])
+	f[1] ^= b & (f[1] ^ g[1])
+	f[2] ^= b & (f[2] ^ g[2])
+	f[3] ^= b & (f[3] ^ g[3])
+	f[4] ^= b & (f[4] ^ g[4])
+	f[5] ^= b & (f[5] ^ g[5])
+	f[6] ^= b & (f[6] ^ g[6])
+	f[7] ^= b & (f[7] ^ g[7])
+	f[8] ^= b & (f[8] ^ g[8])
+	f[9] ^= b & (f[9] ^ g[9])
 }
 
 func load3(in []byte) int64 {
@@ -257,8 +268,8 @@ func FeIsNonZero(f *FieldElement) int32 {
 	var s [32]byte
 	FeToBytes(&s, f)
 	var x uint8
-	for _, b := range s {
-		x |= b
+	for i := range s {
+		x |= s[i]
 	}
 	x |= x >> 4
 	x |= x >> 2
@@ -274,9 +285,16 @@ func FeIsNonZero(f *FieldElement) int32 {
 // Postconditions:
 //    |h| bounded by 1.1*2^25,1.1*2^24,1.1*2^25,1.1*2^24,etc.
 func FeNeg(h, f *FieldElement) {
-	for i := range h {
-		h[i] = -f[i]
-	}
+	h[0] = -f[0]
+	h[1] = -f[1]
+	h[2] = -f[2]
+	h[3] = -f[3]
+	h[4] = -f[4]
+	h[5] = -f[5]
+	h[6] = -f[6]
+	h[7] = -f[7]
+	h[8] = -f[8]
+	h[9] = -f[9]
 }
 
 // FeMul calculates h = f * g
@@ -865,9 +883,7 @@ func FeInvert(out, z *FieldElement) {
 
 	FeSquare(&t0, z)        // 2^1
 	FeSquare(&t1, &t0)      // 2^2
-	for i = 1; i < 2; i++ { // 2^3
-		FeSquare(&t1, &t1)
-	}
+	FeSquare(&t1, &t1)      // 2^3
 	FeMul(&t1, z, &t1)      // 2^3 + 2^0
 	FeMul(&t0, &t0, &t1)    // 2^3 + 2^1 + 2^0
 	FeSquare(&t2, &t0)      // 2^4 + 2^2 + 2^1
@@ -919,19 +935,11 @@ func fePow22523(out, z *FieldElement) {
 	var i int
 
 	FeSquare(&t0, z)
-	for i = 1; i < 1; i++ {
-		FeSquare(&t0, &t0)
-	}
 	FeSquare(&t1, &t0)
-	for i = 1; i < 2; i++ {
-		FeSquare(&t1, &t1)
-	}
+	FeSquare(&t1, &t1)
 	FeMul(&t1, z, &t1)
 	FeMul(&t0, &t0, &t1)
 	FeSquare(&t0, &t0)
-	for i = 1; i < 1; i++ {
-		FeSquare(&t0, &t0)
-	}
 	FeMul(&t0, &t1, &t0)
 	FeSquare(&t1, &t0)
 	for i = 1; i < 5; i++ {
