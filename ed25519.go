@@ -19,12 +19,12 @@ import (
 
 const (
 	PublicKeySize  = 32
-	PrivateKeySize = 64
+	SecretKeySize = 64
 	SignatureSize  = 64
 )
 
 // GenerateKey generates a public/secret key pair using randomness from rand.
-func GenerateKey(rand io.Reader) (publicKey *[PublicKeySize]byte, secretKey *[PrivateKeySize]byte, err error) {
+func GenerateKey(rand io.Reader) (publicKey *[PublicKeySize]byte, secretKey *[SecretKeySize]byte, err error) {
 	secretKey = new([64]byte)
 	publicKey = new([32]byte)
 	_, err = io.ReadFull(rand, secretKey[:32])
@@ -51,7 +51,7 @@ func GenerateKey(rand io.Reader) (publicKey *[PublicKeySize]byte, secretKey *[Pr
 }
 
 // Sign signs the message with secretKey and returns a signature.
-func Sign(secretKey *[PrivateKeySize]byte, message []byte) *[SignatureSize]byte {
+func Sign(secretKey *[SecretKeySize]byte, message []byte) *[SignatureSize]byte {
 	h := sha512.New()
 	h.Write(secretKey[:32])
 

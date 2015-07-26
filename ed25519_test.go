@@ -26,10 +26,10 @@ func (zeroReader) Read(buf []byte) (int, error) {
 
 func TestSignVerify(t *testing.T) {
 	var zero zeroReader
-	public, private, _ := GenerateKey(zero)
+	public, secret, _ := GenerateKey(zero)
 
 	message := []byte("test message")
-	sig := Sign(private, message)
+	sig := Sign(secret, message)
 	if !Verify(public, message, sig) {
 		t.Errorf("valid signature rejected")
 	}
@@ -87,7 +87,7 @@ func TestGolden(t *testing.T) {
 			t.Fatalf("bad public key length on line %d: got %d bytes", lineNo, l)
 		}
 
-		var priv [PrivateKeySize]byte
+		var priv [SecretKeySize]byte
 		copy(priv[:], privBytes)
 		copy(priv[32:], pubKeyBytes)
 
