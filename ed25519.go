@@ -12,8 +12,6 @@ package ed25519
 import (
 	"bytes"
 	"crypto/sha512"
-
-	"github.com/NebulousLabs/ed25519/edwards25519"
 )
 
 const (
@@ -36,10 +34,10 @@ func GenerateKey(entropy [32]byte) (publicKey *[PublicKeySize]byte, secretKey *[
 	digest[31] &= 127
 	digest[31] |= 64
 
-	var A edwards25519.ExtendedGroupElement
+	var A ExtendedGroupElement
 	var hBytes [32]byte
 	copy(hBytes[:], digest)
-	edwards25519.GeScalarMultBase(&A, &hBytes)
+	GeScalarMultBase(&A, &hBytes)
 	A.ToBytes(publicKey)
 
 	copy(secretKey[32:], publicKey[:])
@@ -65,9 +63,9 @@ func Sign(secretKey *[SecretKeySize]byte, message []byte) *[SignatureSize]byte {
 	h.Sum(messageDigest[:0])
 
 	var messageDigestReduced [32]byte
-	edwards25519.ScReduce(&messageDigestReduced, &messageDigest)
-	var R edwards25519.ExtendedGroupElement
-	edwards25519.GeScalarMultBase(&R, &messageDigestReduced)
+	ScReduce(&messageDigestReduced, &messageDigest)
+	var R ExtendedGroupElement
+	GeScalarMultBase(&R, &messageDigestReduced)
 
 	var encodedR [32]byte
 	R.ToBytes(&encodedR)
@@ -78,10 +76,10 @@ func Sign(secretKey *[SecretKeySize]byte, message []byte) *[SignatureSize]byte {
 	h.Write(message)
 	h.Sum(hramDigest[:0])
 	var hramDigestReduced [32]byte
-	edwards25519.ScReduce(&hramDigestReduced, &hramDigest)
+	ScReduce(&hramDigestReduced, &hramDigest)
 
 	var s [32]byte
-	edwards25519.ScMulAdd(&s, &hramDigestReduced, &expandedSecretKey, &messageDigestReduced)
+	ScMulAdd(&s, &hramDigestReduced, &expandedSecretKey, &messageDigestReduced)
 
 	signature := new([64]byte)
 	copy(signature[:], encodedR[:])
@@ -95,7 +93,7 @@ func Verify(publicKey *[PublicKeySize]byte, message []byte, sig *[SignatureSize]
 		return false
 	}
 
-	var A edwards25519.ExtendedGroupElement
+	var A ExtendedGroupElement
 	if !A.FromBytes(publicKey) {
 		return false
 	}
@@ -108,12 +106,12 @@ func Verify(publicKey *[PublicKeySize]byte, message []byte, sig *[SignatureSize]
 	h.Sum(digest[:0])
 
 	var hReduced [32]byte
-	edwards25519.ScReduce(&hReduced, &digest)
+	ScReduce(&hReduced, &digest)
 
-	var R edwards25519.ProjectiveGroupElement
+	var R ProjectiveGroupElement
 	var b [32]byte
 	copy(b[:], sig[32:])
-	edwards25519.GeDoubleScalarMultVartime(&R, &hReduced, &A, &b)
+	GeDoubleScalarMultVartime(&R, &hReduced, &A, &b)
 
 	var checkR [32]byte
 	R.ToBytes(&checkR)
