@@ -8,6 +8,7 @@ import (
 	"bufio"
 	"bytes"
 	"compress/gzip"
+	"crypto/rand"
 	"encoding/hex"
 	"io"
 	"os"
@@ -15,18 +16,8 @@ import (
 	"testing"
 )
 
-type zeroReader struct{}
-
-func (zeroReader) Read(buf []byte) (int, error) {
-	for i := range buf {
-		buf[i] = 0
-	}
-	return len(buf), nil
-}
-
 func TestSignVerify(t *testing.T) {
-	var zero zeroReader
-	public, secret, _ := GenerateKey(zero)
+	public, secret, _ := GenerateKey([32]byte{})
 
 	message := []byte("test message")
 	sig := Sign(secret, message)
@@ -100,6 +91,72 @@ func TestGolden(t *testing.T) {
 		copy(pubKey[:], pubKeyBytes)
 		if !Verify(&pubKey, msg, sig2) {
 			t.Errorf("signature failed to verify on line %d", lineNo)
+		}
+	}
+}
+
+func BenchmarkGenerateKeys(b *testing.B) {
+	var entropy [32]byte
+	for i := 0; i < b.N; i++ {
+		_, err := rand.Read(entropy[:])
+		if err != nil {
+			panic(err)
+		}
+		_, _, err = GenerateKey(entropy)
+		if err != nil {
+			panic(err)
+		}
+	}
+}
+
+func BenchmarkSign(b *testing.B) {
+	var entropy [32]byte
+	_, err := rand.Read(entropy[:])
+	if err != nil {
+		panic(err)
+	}
+	_, sk, err := GenerateKey(entropy)
+	if err != nil {
+		panic(err)
+	}
+
+	b.ResetTimer()
+	message := make([]byte, 64)
+	for i := 0; i < b.N; i++ {
+		_, err := rand.Read(message)
+		if err != nil {
+			panic(err)
+		}
+
+		_ = Sign(sk, message)
+	}
+}
+
+func BenchmarkVerify(b *testing.B) {
+	var entropy [32]byte
+	_, err := rand.Read(entropy[:])
+	if err != nil {
+		panic(err)
+	}
+	pk, sk, err := GenerateKey(entropy)
+	if err != nil {
+		panic(err)
+	}
+
+	b.ResetTimer()
+	message := make([]byte, 64)
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		_, err := rand.Read(message)
+		if err != nil {
+			panic(err)
+		}
+
+		sig := Sign(sk, message)
+		b.StartTimer()
+		ver := Verify(pk, message, sig)
+		if !ver {
+			panic(err)
 		}
 	}
 }
