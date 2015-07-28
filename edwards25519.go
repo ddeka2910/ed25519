@@ -89,7 +89,7 @@ func load4(in []byte) int64 {
 	return r
 }
 
-func feFromBytes(dst *fieldElement, src *[32]byte) {
+func feFromBytes(dst *fieldElement, src []byte) {
 	h0 := load4(src[:])
 	h1 := load3(src[4:]) << 6
 	h2 := load3(src[7:]) << 5
@@ -169,7 +169,7 @@ func feFromBytes(dst *fieldElement, src *[32]byte) {
 //
 //   Have q+2^(-255)x = 2^(-255)(h + 19 2^(-25) h9 + 2^(-1))
 //   so floor(2^(-255)(h + 19 2^(-25) h9 + 2^(-1))) = q.
-func feToBytes(s *[32]byte, h *fieldElement) {
+func feToBytes(s []byte, h *fieldElement) {
 	var carry [10]int32
 
 	q := (19*h[9] + (1 << 24)) >> 25
@@ -258,15 +258,55 @@ func feToBytes(s *[32]byte, h *fieldElement) {
 	s[31] = byte(h[9] >> 18)
 }
 
-func feIsNegative(f *fieldElement) byte {
-	var s [32]byte
-	feToBytes(&s, f)
-	return s[0] & 1
+func feIsNegative(h *fieldElement) byte {
+	var carry [10]int32
+	q := (19*h[9] + (1 << 24)) >> 25
+	q = (h[0] + q) >> 26
+	q = (h[1] + q) >> 25
+	q = (h[2] + q) >> 26
+	q = (h[3] + q) >> 25
+	q = (h[4] + q) >> 26
+	q = (h[5] + q) >> 25
+	q = (h[6] + q) >> 26
+	q = (h[7] + q) >> 25
+	q = (h[8] + q) >> 26
+	q = (h[9] + q) >> 25
+	h[0] += 19 * q
+	carry[0] = h[0] >> 26
+	h[1] += carry[0]
+	h[0] -= carry[0] << 26
+	carry[1] = h[1] >> 25
+	h[2] += carry[1]
+	h[1] -= carry[1] << 25
+	carry[2] = h[2] >> 26
+	h[3] += carry[2]
+	h[2] -= carry[2] << 26
+	carry[3] = h[3] >> 25
+	h[4] += carry[3]
+	h[3] -= carry[3] << 25
+	carry[4] = h[4] >> 26
+	h[5] += carry[4]
+	h[4] -= carry[4] << 26
+	carry[5] = h[5] >> 25
+	h[6] += carry[5]
+	h[5] -= carry[5] << 25
+	carry[6] = h[6] >> 26
+	h[7] += carry[6]
+	h[6] -= carry[6] << 26
+	carry[7] = h[7] >> 25
+	h[8] += carry[7]
+	h[7] -= carry[7] << 25
+	carry[8] = h[8] >> 26
+	h[9] += carry[8]
+	h[8] -= carry[8] << 26
+	carry[9] = h[9] >> 25
+	h[9] -= carry[9] << 25
+	return byte(h[0]>>0) & 1
 }
 
 func feIsNonZero(f *fieldElement) int32 {
 	var s [32]byte
-	feToBytes(&s, f)
+	feToBytes(s[:], f)
 	var x uint8
 	for i := range s {
 		x |= s[i]
@@ -1038,7 +1078,7 @@ func (p *projectiveGroupElement) ToBytes(s *[32]byte) {
 	feInvert(&recip, &p.Z)
 	feMul(&x, &p.X, &recip)
 	feMul(&y, &p.Y, &recip)
-	feToBytes(s, &y)
+	feToBytes(s[:], &y)
 	s[31] ^= feIsNegative(&x) << 7
 }
 
@@ -1068,7 +1108,7 @@ func (p *extendedGroupElement) ToProjective(r *projectiveGroupElement) {
 	feCopy(&r.Z, &p.Z)
 }
 
-func (p *extendedGroupElement) ToBytes(s *[32]byte) {
+func (p *extendedGroupElement) ToBytes(s []byte) {
 	var recip, x, y fieldElement
 
 	feInvert(&recip, &p.Z)
@@ -1078,7 +1118,7 @@ func (p *extendedGroupElement) ToBytes(s *[32]byte) {
 	s[31] ^= feIsNegative(&x) << 7
 }
 
-func (p *extendedGroupElement) FromBytes(s *[32]byte) bool {
+func (p *extendedGroupElement) FromBytes(s []byte) bool {
 	var u, v, v3, vxx, check fieldElement
 
 	feFromBytes(&p.Y, s)
@@ -1110,7 +1150,7 @@ func (p *extendedGroupElement) FromBytes(s *[32]byte) bool {
 		}
 		feMul(&p.X, &p.X, &sqrtM1)
 
-		feToBytes(&tmpX, &p.X)
+		feToBytes(tmpX[:], &p.X)
 		for i, v := range tmpX {
 			tmp2[31-i] = v
 		}
@@ -1205,7 +1245,7 @@ func geMixedSub(r *completedGroupElement, p *extendedGroupElement, q *preCompute
 	feAdd(&r.T, &t0, &r.T)
 }
 
-func slide(r *[256]int8, a *[32]byte) {
+func slide(r *[256]int8, a []byte) {
 	for i := range r {
 		r[i] = int8(1 & (a[i>>3] >> uint(i&7)))
 	}
@@ -1239,7 +1279,7 @@ func slide(r *[256]int8, a *[32]byte) {
 // where a = a[0]+256*a[1]+...+256^31 a[31].
 // and b = b[0]+256*b[1]+...+256^31 b[31].
 // B is the Ed25519 base point (x,4/5) with x positive.
-func geDoubleScalarMultVartime(r *projectiveGroupElement, a *[32]byte, A *extendedGroupElement, b *[32]byte) {
+func geDoubleScalarMultVartime(r *projectiveGroupElement, a []byte, A *extendedGroupElement, b []byte) {
 	var aSlide, bSlide [256]int8
 	var Ai [8]cachedGroupElement // A,3A,5A,7A,9A,11A,13A,15A
 	var t completedGroupElement
@@ -1297,11 +1337,6 @@ func equal(b, c int32) int32 {
 	return int32(x >> 31)
 }
 
-// negative returns 1 if b < 0 and 0 otherwise.
-func negative(b int32) int32 {
-	return (b >> 31) & 1
-}
-
 func preComputedGroupElementCMove(t, u *preComputedGroupElement, b int32) {
 	feCMove(&t.yPlusX, &u.yPlusX, b)
 	feCMove(&t.yMinusX, &u.yMinusX, b)
@@ -1310,7 +1345,7 @@ func preComputedGroupElementCMove(t, u *preComputedGroupElement, b int32) {
 
 func selectPoint(t *preComputedGroupElement, pos int32, b int32) {
 	var minusT preComputedGroupElement
-	bNegative := negative(b)
+	bNegative := (b >> 31) & 1
 	bAbs := b - (((-bNegative) & b) << 1)
 
 	t.Zero()
@@ -1329,7 +1364,7 @@ func selectPoint(t *preComputedGroupElement, pos int32, b int32) {
 //
 // Preconditions:
 //   a[31] <= 127
-func geScalarMultBase(h *extendedGroupElement, a *[32]byte) {
+func geScalarMultBase(h *extendedGroupElement, a []byte) {
 	var e [64]int8
 
 	for i, v := range a {
@@ -1385,7 +1420,7 @@ func geScalarMultBase(h *extendedGroupElement, a *[32]byte) {
 // Output:
 //   s[0]+256*s[1]+...+256^31*s[31] = (ab+c) mod l
 //   where l = 2^252 + 27742317777372353535851937790883648493.
-func scMulAdd(s, a, b, c *[32]byte) {
+func scMulAdd(s, a, b, c []byte) {
 	a0 := 2097151 & load3(a[:])
 	a1 := 2097151 & (load4(a[2:]) >> 5)
 	a2 := 2097151 & (load3(a[5:]) >> 2)
@@ -1816,7 +1851,7 @@ func scMulAdd(s, a, b, c *[32]byte) {
 // Output:
 //   s[0]+256*s[1]+...+256^31*s[31] = s mod l
 //   where l = 2^252 + 27742317777372353535851937790883648493.
-func scReduce(out *[32]byte, s *[64]byte) {
+func scReduce(out []byte, s []byte) {
 	s0 := 2097151 & load3(s[:])
 	s1 := 2097151 & (load4(s[2:]) >> 5)
 	s2 := 2097151 & (load3(s[5:]) >> 2)
