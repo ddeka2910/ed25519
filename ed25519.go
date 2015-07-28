@@ -49,7 +49,7 @@ func GenerateKey(entropy [32]byte) (publicKey *[PublicKeySize]byte, secretKey *[
 	var A extendedGroupElement
 	var hBytes [32]byte
 	copy(hBytes[:], digest)
-	GeScalarMultBase(&A, &hBytes)
+	geScalarMultBase(&A, &hBytes)
 	A.ToBytes(publicKey)
 
 	copy(secretKey[32:], publicKey[:])
@@ -77,7 +77,7 @@ func Sign(secretKey *[SecretKeySize]byte, message []byte) *[SignatureSize]byte {
 	var messageDigestReduced [32]byte
 	scReduce(&messageDigestReduced, &messageDigest)
 	var R extendedGroupElement
-	GeScalarMultBase(&R, &messageDigestReduced)
+	geScalarMultBase(&R, &messageDigestReduced)
 
 	var encodedR [32]byte
 	R.ToBytes(&encodedR)
@@ -123,7 +123,7 @@ func Verify(publicKey *[PublicKeySize]byte, message []byte, sig *[SignatureSize]
 	var R projectiveGroupElement
 	var b [32]byte
 	copy(b[:], sig[32:])
-	GeDoubleScalarMultVartime(&R, &hReduced, &A, &b)
+	geDoubleScalarMultVartime(&R, &hReduced, &A, &b)
 
 	var checkR [32]byte
 	R.ToBytes(&checkR)
