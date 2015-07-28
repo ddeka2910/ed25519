@@ -13,40 +13,55 @@ import (
 	"crypto/sha512"
 )
 
+const (
+	// EntropySize is the number of bytes used as input to GenerateKey.
+	EntropySize = 32
+
+	// PublicKeySize is the size of the public key in bytes.
+	PublicKeySize = 32
+
+	// SecretKeySize is the size of the secret key in bytes.
+	SecretKeySize = 64
+
+	// SignatureSize is size of the signature in bytes.
+	SignatureSize = 64
+)
+
 type (
-	// PublicKey contains an ed25519 public key. The key will always be
-	// 'PublicKeySize' in length.
-	PublicKey []byte
+	// PublicKey is used to verify signatures.
+	PublicKey *[PublicKeySize]byte
 
-	// SecretKey contains an ed25519 secret key. The key will always be
-	// 'SecretKeySize' in length.
-	SecretKey []byte
+	// SecretKey is used to sign messages.
+	SecretKey *[SecretKeySize]byte
 
-	// Signature contains an ed25519 signature. The signature will always be
-	// 'SignatureSize' in length.
-	Signature []byte
+	// Signature is used to authenticate a message.
+	Signature *[SignatureSize]byte
 )
 
 // GenerateKey generates a public/secret key pair using randomness from rand.
-func GenerateKey(entropy [EntropySize]byte) (SecretKey, PublicKey) {
-	secretKey := SecretKey(make([]byte, SecretKeySize))
-	copy(secretKey[:], entropy[:])
+func GenerateKey(entropy [EntropySize]byte) (sk SecretKey, pk PublicKey) {
+	sk = new([SecretKeySize]byte)
+	pk = new([PublicKeySize]byte)
+	copy(sk[:32], entropy[:])
 
 	h := sha512.New()
-	h.Write(secretKey[:32])
+	h.Write(sk[:32])
 	digest := h.Sum(nil)
 	digest[0] &= 248
 	digest[31] &= 127
 	digest[31] |= 64
 
-	var A extendedGroupElement
-	geScalarMultBase(&A, digest[:32])
-	A.ToBytes(secretKey[32:])
-	return secretKey, PublicKey(secretKey[32:])
+	A := geScalarMultBase(digest[:32])
+	A.ToBytes(sk[32:])
+
+	copy(pk[:], sk[32:])
+	return sk, pk
 }
 
 // Sign signs the message with secretKey and returns a signature.
-func Sign(sk SecretKey, message []byte) Signature {
+func Sign(sk SecretKey, message []byte) (sig Signature) {
+	sig = new([SignatureSize]byte)
+
 	h := sha512.New()
 	h.Write(sk[:32])
 
@@ -60,22 +75,18 @@ func Sign(sk SecretKey, message []byte) Signature {
 	h.Write(message)
 	messageDigest := h.Sum(nil)
 
-	var messageDigestReduced [32]byte
-	scReduce(messageDigestReduced[:], messageDigest)
-	var R extendedGroupElement
-	geScalarMultBase(&R, messageDigestReduced[:])
+	messageDigestReduced := scReduce(messageDigest)
+	R := geScalarMultBase(messageDigestReduced[:])
+	R.ToBytes(sig[:32])
 
-	var hramDigestReduced [32]byte
-	signature := make([]byte, 64)
-	R.ToBytes(signature[:32])
 	h.Reset()
-	h.Write(signature[:32])
+	h.Write(sig[:32])
 	h.Write(sk[32:])
 	h.Write(message)
 	hramDigest := h.Sum(nil)
-	scReduce(hramDigestReduced[:], hramDigest)
-	scMulAdd(signature[32:], hramDigestReduced[:], digest[:32], messageDigestReduced[:])
-	return Signature(signature[:])
+	hramDigestReduced := scReduce(hramDigest)
+	scMulAdd(sig[32:], hramDigestReduced, digest[:32], messageDigestReduced)
+	return sig
 }
 
 // Verify returns true iff sig is a valid signature of message by publicKey.
@@ -84,20 +95,18 @@ func Verify(pk PublicKey, message []byte, sig Signature) bool {
 		return false
 	}
 	var A extendedGroupElement
-	if !A.FromBytes(pk) {
+	if !A.FromBytes(pk[:]) {
 		return false
 	}
 
 	h := sha512.New()
 	h.Write(sig[:32])
-	h.Write(pk)
+	h.Write(pk[:])
 	h.Write(message)
 	digest := h.Sum(nil)
 
-	var hReduced [32]byte
-	var R projectiveGroupElement
-	scReduce(hReduced[:], digest[:])
-	geDoubleScalarMultVartime(&R, hReduced[:], &A, sig[32:])
+	hReduced := scReduce(digest[:])
+	R := geDoubleScalarMultVartime(hReduced, &A, sig[32:])
 
 	var checkR [32]byte
 	R.ToBytes(&checkR)

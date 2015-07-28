@@ -1017,9 +1017,7 @@ func fePow22523(out, z *fieldElement) {
 	}
 	feMul(&t0, &t1, &t0)
 	feSquare(&t0, &t0)
-	for i = 1; i < 2; i++ {
-		feSquare(&t0, &t0)
-	}
+	feSquare(&t0, &t0)
 	feMul(out, &t0, z)
 }
 
@@ -1279,7 +1277,9 @@ func slide(r *[256]int8, a []byte) {
 // where a = a[0]+256*a[1]+...+256^31 a[31].
 // and b = b[0]+256*b[1]+...+256^31 b[31].
 // B is the Ed25519 base point (x,4/5) with x positive.
-func geDoubleScalarMultVartime(r *projectiveGroupElement, a []byte, A *extendedGroupElement, b []byte) {
+func geDoubleScalarMultVartime(a []byte, A *extendedGroupElement, b []byte) *projectiveGroupElement {
+	r := new(projectiveGroupElement)
+
 	var aSlide, bSlide [256]int8
 	var Ai [8]cachedGroupElement // A,3A,5A,7A,9A,11A,13A,15A
 	var t completedGroupElement
@@ -1328,6 +1328,7 @@ func geDoubleScalarMultVartime(r *projectiveGroupElement, a []byte, A *extendedG
 
 		t.ToProjective(r)
 	}
+	return r
 }
 
 // equal returns 1 if b == c and 0 otherwise.
@@ -1364,7 +1365,9 @@ func selectPoint(t *preComputedGroupElement, pos int32, b int32) {
 //
 // Preconditions:
 //   a[31] <= 127
-func geScalarMultBase(h *extendedGroupElement, a []byte) {
+func geScalarMultBase(a []byte) *extendedGroupElement {
+	h := new(extendedGroupElement)
+
 	var e [64]int8
 
 	for i, v := range a {
@@ -1408,6 +1411,7 @@ func geScalarMultBase(h *extendedGroupElement, a []byte) {
 		geMixedAdd(&r, h, &t)
 		r.ToExtended(h)
 	}
+	return h
 }
 
 // The scalars are GF(2^252 + 27742317777372353535851937790883648493).
@@ -1851,7 +1855,7 @@ func scMulAdd(s, a, b, c []byte) {
 // Output:
 //   s[0]+256*s[1]+...+256^31*s[31] = s mod l
 //   where l = 2^252 + 27742317777372353535851937790883648493.
-func scReduce(out []byte, s []byte) {
+func scReduce(s []byte) []byte {
 	s0 := 2097151 & load3(s[:])
 	s1 := 2097151 & (load4(s[2:]) >> 5)
 	s2 := 2097151 & (load3(s[5:]) >> 2)
@@ -2135,6 +2139,7 @@ func scReduce(out []byte, s []byte) {
 	s11 += carry[10]
 	s10 -= carry[10] << 21
 
+	out := make([]byte, 32)
 	out[0] = byte(s0 >> 0)
 	out[1] = byte(s0 >> 8)
 	out[2] = byte((s0 >> 16) | (s1 << 5))
@@ -2167,4 +2172,5 @@ func scReduce(out []byte, s []byte) {
 	out[29] = byte(s11 >> 1)
 	out[30] = byte(s11 >> 9)
 	out[31] = byte(s11 >> 17)
+	return out
 }

@@ -34,7 +34,7 @@ func TestSignVerify(t *testing.T) {
 func TestGolden(t *testing.T) {
 	// sign.input.gz is a selection of test cases from
 	// http://ed25519.cr.yp.to/python/sign.input
-	testDataZ, err := os.Open("testdata/sign.input.gz")
+	testDataZ, err := os.Open("testdata.gz")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -78,15 +78,17 @@ func TestGolden(t *testing.T) {
 			t.Fatalf("bad public key length on line %d: got %d bytes", lineNo, l)
 		}
 
-		var priv [SecretKeySize]byte
+		priv := new([SecretKeySize]byte)
+		pub := new([PublicKeySize]byte)
 		copy(priv[:], privBytes)
 		copy(priv[32:], pubKeyBytes)
+		copy(pub[:], pubKeyBytes)
 
-		sig2 := Sign(priv[:], msg)
+		sig2 := Sign(priv, msg)
 		if !bytes.Equal(sig, sig2[:]) {
 			t.Errorf("different signature result on line %d: %x vs %x", lineNo, sig, sig2)
 		}
-		if !Verify(pubKeyBytes, msg, sig2) {
+		if !Verify(pub, msg, sig2) {
 			t.Errorf("signature failed to verify on line %d", lineNo)
 		}
 	}
