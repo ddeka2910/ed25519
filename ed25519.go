@@ -32,16 +32,28 @@ const (
 	SignatureSize = 64
 )
 
+type (
+	// PublicKey contains an ed25519 public key. The key will always be
+	// 'PublicKeySize' in length.
+	PublicKey []byte
+
+	// SecretKey contains an ed25519 secret key. The key will always be
+	// 'SecretKeySize' in length.
+	SecretKey []byte
+
+	// Signature contains an ed25519 signature. The signature will always be
+	// 'SignatureSize' in length.
+	Signature []byte
+)
+
 // GenerateKey generates a public/secret key pair using randomness from rand.
-func GenerateKey(entropy [32]byte) (publicKey *[PublicKeySize]byte, secretKey *[SecretKeySize]byte, err error) {
-	secretKey = new([64]byte)
-	publicKey = new([32]byte)
+func GenerateKey(entropy [EntropySize]byte) (SecretKey, PublicKey) {
+	secretKey := SecretKey(make([]byte, SecretKeySize))
 	copy(secretKey[:], entropy[:])
 
 	h := sha512.New()
 	h.Write(secretKey[:32])
 	digest := h.Sum(nil)
-
 	digest[0] &= 248
 	digest[31] &= 127
 	digest[31] |= 64
@@ -50,16 +62,18 @@ func GenerateKey(entropy [32]byte) (publicKey *[PublicKeySize]byte, secretKey *[
 	var hBytes [32]byte
 	copy(hBytes[:], digest)
 	geScalarMultBase(&A, &hBytes)
-	A.ToBytes(publicKey)
 
-	copy(secretKey[32:], publicKey[:])
-	return
+	var pk [32]byte
+	copy(pk[:], secretKey[32:])
+	A.ToBytes(&pk)
+	copy(secretKey[32:], pk[:])
+	return secretKey, PublicKey(secretKey[32:])
 }
 
 // Sign signs the message with secretKey and returns a signature.
-func Sign(secretKey *[SecretKeySize]byte, message []byte) *[SignatureSize]byte {
+func Sign(sk SecretKey, message []byte) Signature {
 	h := sha512.New()
-	h.Write(secretKey[:32])
+	h.Write(sk[:32])
 
 	var digest1, messageDigest, hramDigest [64]byte
 	var expandedSecretKey [32]byte
@@ -84,7 +98,7 @@ func Sign(secretKey *[SecretKeySize]byte, message []byte) *[SignatureSize]byte {
 
 	h.Reset()
 	h.Write(encodedR[:])
-	h.Write(secretKey[32:])
+	h.Write(sk[32:])
 	h.Write(message)
 	h.Sum(hramDigest[:0])
 	var hramDigestReduced [32]byte
@@ -96,17 +110,19 @@ func Sign(secretKey *[SecretKeySize]byte, message []byte) *[SignatureSize]byte {
 	signature := new([64]byte)
 	copy(signature[:], encodedR[:])
 	copy(signature[32:], s[:])
-	return signature
+	return Signature(signature[:])
 }
 
 // Verify returns true iff sig is a valid signature of message by publicKey.
-func Verify(publicKey *[PublicKeySize]byte, message []byte, sig *[SignatureSize]byte) bool {
+func Verify(pk PublicKey, message []byte, sig Signature) bool {
 	if sig[63]&224 != 0 {
 		return false
 	}
 
 	var A extendedGroupElement
-	if !A.FromBytes(publicKey) {
+	var publicKey [32]byte
+	copy(publicKey[:], pk)
+	if !A.FromBytes(&publicKey) {
 		return false
 	}
 

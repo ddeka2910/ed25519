@@ -17,16 +17,16 @@ import (
 )
 
 func TestSignVerify(t *testing.T) {
-	public, secret, _ := GenerateKey([32]byte{})
-
+	secretKey, publicKey := GenerateKey([32]byte{})
 	message := []byte("test message")
-	sig := Sign(secret, message)
-	if !Verify(public, message, sig) {
+
+	sig := Sign(secretKey, message)
+	if !Verify(publicKey, message, sig) {
 		t.Errorf("valid signature rejected")
 	}
 
 	wrongMessage := []byte("wrong message")
-	if Verify(public, wrongMessage, sig) {
+	if Verify(publicKey, wrongMessage, sig) {
 		t.Errorf("signature of different message accepted")
 	}
 }
@@ -82,14 +82,11 @@ func TestGolden(t *testing.T) {
 		copy(priv[:], privBytes)
 		copy(priv[32:], pubKeyBytes)
 
-		sig2 := Sign(&priv, msg)
+		sig2 := Sign(priv[:], msg)
 		if !bytes.Equal(sig, sig2[:]) {
 			t.Errorf("different signature result on line %d: %x vs %x", lineNo, sig, sig2)
 		}
-
-		var pubKey [PublicKeySize]byte
-		copy(pubKey[:], pubKeyBytes)
-		if !Verify(&pubKey, msg, sig2) {
+		if !Verify(pubKeyBytes, msg, sig2) {
 			t.Errorf("signature failed to verify on line %d", lineNo)
 		}
 	}
@@ -102,10 +99,7 @@ func BenchmarkGenerateKeys(b *testing.B) {
 		if err != nil {
 			panic(err)
 		}
-		_, _, err = GenerateKey(entropy)
-		if err != nil {
-			panic(err)
-		}
+		_, _ = GenerateKey(entropy)
 	}
 }
 
@@ -115,10 +109,9 @@ func BenchmarkSign(b *testing.B) {
 	if err != nil {
 		panic(err)
 	}
-	_, sk, err := GenerateKey(entropy)
-	if err != nil {
-		panic(err)
-	}
+	sk, _ := GenerateKey(entropy)
+	var secret [64]byte
+	copy(secret[:], sk[:])
 
 	b.ResetTimer()
 	message := make([]byte, 64)
@@ -138,10 +131,7 @@ func BenchmarkVerify(b *testing.B) {
 	if err != nil {
 		panic(err)
 	}
-	pk, sk, err := GenerateKey(entropy)
-	if err != nil {
-		panic(err)
-	}
+	sk, pk := GenerateKey(entropy)
 
 	b.ResetTimer()
 	message := make([]byte, 64)
